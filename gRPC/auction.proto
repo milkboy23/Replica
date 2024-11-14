@@ -8,6 +8,7 @@ service Node {
 
 message Bid {
   int32 amount = 1; // amount to bid
+  int32 id = 2;
 }
 
 message Ack {
