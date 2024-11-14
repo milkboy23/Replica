@@ -11,8 +11,7 @@ message Bid {
 }
 
 message Ack {
-  bool isSuccess = 1; // return success if bid accepted or fail if not
-  // Add possibly an error property too?
+  int32 status = 1; // 0 = success, 1 = fail, 2 = error
 }
 
 message Outcome {
