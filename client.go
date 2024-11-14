@@ -13,8 +13,8 @@ import (
 )
 
 var (
-	ports []int
-	activeNode
+	ports      []int
+	activeNode proto.NodeClient
 )
 
 func main() {
