@@ -55,7 +55,7 @@ func Connect() {
 		fmt.Printf("Port: %d\n", port)
 		node, err := ConnectNode(port)
 		if err != nil {
-			// error happened connect to next
+			continue // Could not connect to node, continue to next port
 		}
 		activeNode = node
 	}
@@ -75,7 +75,7 @@ func ConnectNode(port int) (proto.NodeClient, error) {
 
 // Bid in the auction an amount
 func Bid(amount int32) {
-	bidRequest := &proto.Bid{
+	bidRequest := &proto.AuctionBid{
 		Amount: amount,
 		Id:     id,
 	}
@@ -83,7 +83,7 @@ func Bid(amount int32) {
 	// Call the Bid method in the activeNode
 	ack, err := activeNode.Bid(context.Background(), bidRequest)
 	if err != nil {
-		// node failed handle by switching to new node
+		Connect() // node failed handle by switching to new node
 	}
 
 	switch ack.Status {
@@ -92,9 +92,9 @@ func Bid(amount int32) {
 	case 1:
 		fmt.Println("Bid failed.")
 	case 2:
-		fmt.Println("Error occurred during bidding.") // maybe reconnect
+		fmt.Println("Error occurred during bidding.")
 	default:
-		fmt.Println("Unknown response status.") // maybe reconnect
+		fmt.Println("Unknown response status.")
 	}
 }
 
@@ -103,7 +103,7 @@ func Result() {
 	// Call the Result method in the activeNode
 	response, err := activeNode.Result(context.Background(), &proto.Empty{})
 	if err != nil {
-		// node failed handle by switching to new node
+		Connect() // node failed handle by switching to new node
 	}
 
 	// Handle the response
