@@ -2,20 +2,20 @@ syntax = "proto3";
 option go_package = "/";
 
 service Node {
-  rpc Bid (Bid) returns (Ack);
-  rpc Result(Empty) returns (Outcome);
+  rpc Bid (AuctionBid) returns (BidAcknowledge);
+  rpc Result (Empty) returns (AuctionOutcome);
 }
 
-message Bid {
-  int32 amount = 1; // amount to bid
-  int32 id = 2;
+message AuctionBid {
+  int32 id = 1;
+  int32 amount = 2; // amount to bid
 }
 
-message Ack {
-  int32 status = 1; // 0 = success, 1 = fail, 2 = error
+message BidAcknowledge {
+  int32 status = 1; // 0 = success, 1 = fail, 2 = exception/error
 }
 
-message Outcome {
+message AuctionOutcome {
   bool isAuctionFinished = 1; // is the auction finished?
   int32 highestBid = 2; // return current highest bid
 }

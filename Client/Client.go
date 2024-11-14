@@ -50,7 +50,7 @@ func main() {
 }
 
 func bid(amount int32) {
-	bidRequest := &proto.Bid{
+	bidRequest := &proto.AuctionBid{
 		Amount: amount,
 		Id:     id,
 	}
@@ -88,7 +88,7 @@ func result() {
 	}
 }
 
-// Connect to a Node from a port
+// ConnectNode Connect to a Node from a port
 func ConnectNode(port int) proto.NodeClient {
 	portString := fmt.Sprintf(":%d", port) // Format port string
 	dialOptions := grpc.WithTransportCredentials(insecure.NewCredentials())
