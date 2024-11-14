@@ -3,51 +3,75 @@ package main
 import (
 	proto "Replica/gRPC"
 	"bufio"
+	"context"
 	"fmt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"log"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
 )
 
 var (
+	id         int32
 	ports      []int
 	activeNode proto.NodeClient
 )
 
 func main() {
 	registerNodes()
-
-	// also need to connect??
+	id = int32(rand.Intn(100))
 
 	// Listen to input: bid <amount>, result (query the auction)
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
 		scanner.Scan()
-		input := scanner.Text()
+		input := strings.ToLower(scanner.Text())
+
 		commands := strings.Fields(input) // This splits the input by white space
 
 		if len(commands) == 0 {
 			fmt.Println("Usage: bid <amount>, result")
-			os.Exit(1)
 		}
 
 		if commands[0] == "bid" {
 			amount, err := strconv.Atoi(commands[1])
 			if err != nil {
 				fmt.Println("Enter a valid amount")
+				continue
 			}
-			bid(amount)
+			bid(int32(amount))
 		} else if commands[1] == "result" {
 			result()
 		}
 	}
 }
 
-func bid(amount int) {
+func bid(amount int32) {
+	bidRequest := &proto.Bid{
+		Amount: amount,
+		Id:     id,
+	}
 
+	// Call the Bid method in the activeNode
+	ack, err := activeNode.Bid(context.Background(), bidRequest)
+	if err != nil {
+		// node failed handle by switching to new node
+	}
+
+	// Handle the ack response
+	switch ack.Status {
+	case 0:
+		fmt.Println("Bid placed successfully!")
+	case 1:
+		fmt.Println("Bid failed.")
+	case 2:
+		fmt.Println("Error occurred during bidding.")
+	default:
+		fmt.Println("Unknown response status.")
+	}
 }
 
 func result() {
