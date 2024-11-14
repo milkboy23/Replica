@@ -61,21 +61,31 @@ func bid(amount int32) {
 		// node failed handle by switching to new node
 	}
 
-	// Handle the ack response
 	switch ack.Status {
 	case 0:
-		fmt.Println("Bid placed successfully!")
+		fmt.Printf("Bid of %s placed successfully! \n", amount)
 	case 1:
 		fmt.Println("Bid failed.")
 	case 2:
-		fmt.Println("Error occurred during bidding.")
+		fmt.Println("Error occurred during bidding.") // maybe reconnect
 	default:
-		fmt.Println("Unknown response status.")
+		fmt.Println("Unknown response status.") // maybe reconnect
 	}
 }
 
 func result() {
+	// Call the Result method in the activeNode
+	response, err := activeNode.Result(context.Background(), &proto.Empty{})
+	if err != nil {
+		// node failed handle by switching to new node
+	}
 
+	// Handle the response
+	if response.IsAuctionFinished {
+		fmt.Printf("The auction is finished. The highest bid was %d.\n", response.HighestBid)
+	} else {
+		fmt.Printf("The auction is still ongoing. The highest bid is %d.\n", response.HighestBid)
+	}
 }
 
 // Connect to a Node from a port
