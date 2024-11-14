@@ -3,7 +3,7 @@ option go_package = "/";
 
 service Node {
   rpc bid (Bid) returns (Ack);
-  rpc result(Empty) returns (Outcome)
+  rpc result(Empty) returns (Outcome);
 }
 
 message Bid {
