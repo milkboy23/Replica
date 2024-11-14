@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"log"
 	"math/rand"
 	"os"
 	"strconv"
@@ -21,8 +20,10 @@ var (
 )
 
 func main() {
-	registerNodes()
+	RegisterPorts()
 	id = int32(rand.Intn(100))
+
+	Connect()
 
 	// Listen to input: bid <amount>, result (query the auction)
 	scanner := bufio.NewScanner(os.Stdin)
@@ -42,14 +43,38 @@ func main() {
 				fmt.Println("Enter a valid amount")
 				continue
 			}
-			bid(int32(amount))
+			Bid(int32(amount))
 		} else if commands[1] == "result" {
-			result()
+			Result()
 		}
 	}
 }
 
-func bid(amount int32) {
+func Connect() {
+	for _, port := range ports {
+		fmt.Printf("Port: %d\n", port)
+		node, err := ConnectNode(port)
+		if err != nil {
+			// error happened connect to next
+		}
+		activeNode = node
+	}
+}
+
+// ConnectNode connect to a Node from a port
+func ConnectNode(port int) (proto.NodeClient, error) {
+	portString := fmt.Sprintf(":%d", port) // Format port string
+	dialOptions := grpc.WithTransportCredentials(insecure.NewCredentials())
+	connection, err := grpc.NewClient(portString, dialOptions)
+	if err != nil {
+		return nil, err // Return error if it fails to connect
+	}
+
+	return proto.NewNodeClient(connection), nil // Return Node if it succeeds
+}
+
+// Bid in the auction an amount
+func Bid(amount int32) {
 	bidRequest := &proto.Bid{
 		Amount: amount,
 		Id:     id,
@@ -73,7 +98,8 @@ func bid(amount int32) {
 	}
 }
 
-func result() {
+// Result get the auction result
+func Result() {
 	// Call the Result method in the activeNode
 	response, err := activeNode.Result(context.Background(), &proto.Empty{})
 	if err != nil {
@@ -88,19 +114,8 @@ func result() {
 	}
 }
 
-// Connect to a Node from a port
-func ConnectNode(port int) proto.NodeClient {
-	portString := fmt.Sprintf(":%d", port) // Format port string
-	dialOptions := grpc.WithTransportCredentials(insecure.NewCredentials())
-	connection, connectionEstablishErr := grpc.NewClient(portString, dialOptions)
-	if connectionEstablishErr != nil {
-		log.Fatalf("Could not establish connection on port %s | %v", portString, connectionEstablishErr)
-	}
-
-	return proto.NewNodeClient(connection)
-}
-
-func registerNodes() {
+// RegisterPorts register ports from input
+func RegisterPorts() {
 	// Check if there are ports
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: go run client.go <port1> <port2> ... <portN>")
@@ -115,10 +130,5 @@ func registerNodes() {
 			os.Exit(1)
 		}
 		ports = append(ports, port)
-	}
-
-	// Print each port in the list?
-	for _, port := range ports {
-		fmt.Printf("Port: %d\n", port)
 	}
 }
