@@ -2,7 +2,20 @@ syntax = "proto3";
 option go_package = "/";
 
 service Node {
-  rpc bid (Empty) returns (Empty);
+  rpc bid (Bid) returns (Ack);
+  rpc result(Empty) returns (Outcome)
+}
+
+message Bid {
+  int32 amount = 1;
+}
+
+message Ack {
+  bool isSuccess = 1;
+}
+
+message Outcome {
+  int32 result = 1;
 }
 
 message Empty {}
