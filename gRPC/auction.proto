@@ -7,15 +7,17 @@ service Node {
 }
 
 message Bid {
-  int32 amount = 1;
+  int32 amount = 1; // amount to bid
 }
 
 message Ack {
-  bool isSuccess = 1;
+  bool isSuccess = 1; // return success if bid accepted or fail if not
+  // Add possibly an error property too?
 }
 
 message Outcome {
-  int32 result = 1;
+  bool isAuctionFinished = 1; // is the auction finished?
+  int32 highestBid = 2; // return current highest bid
 }
 
 message Empty {}
