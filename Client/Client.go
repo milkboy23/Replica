@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"log"
 	"math/rand"
 	"os"
 	"strconv"
@@ -19,9 +20,16 @@ var (
 	activeNode proto.NodeClient
 )
 
+var (
+	bidSuccess int32 = 0
+	bidFail    int32 = 1
+	bidError   int32 = 2
+)
+
 func main() {
 	RegisterPorts()
 	id = int32(rand.Intn(100))
+	log.Printf("Client ID: %d", id)
 
 	Connect()
 
@@ -34,36 +42,50 @@ func main() {
 		commands := strings.Fields(input) // This splits the input by white space
 
 		if len(commands) == 0 {
-			fmt.Println("Usage: bid <amount>, result")
+			log.Print("Usage: bid <amount>, result")
+			continue
 		}
-
-		if commands[0] == "bid" {
+		switch commands[0] {
+		case "bid":
+			if len(commands) < 2 {
+				log.Print("Please enter an amount to bid")
+				continue
+			}
 			amount, err := strconv.Atoi(commands[1])
 			if err != nil {
-				fmt.Println("Enter a valid amount")
+				log.Printf("Please enter a valid amount. %s, isn't valid", commands[1])
 				continue
 			}
 			Bid(int32(amount))
-		} else if commands[1] == "result" {
+		case "result":
 			Result()
+		default:
+			log.Print("Usage: bid <amount>, result")
 		}
 	}
 }
 
 func Connect() {
 	for _, port := range ports {
-		fmt.Printf("Port: %d\n", port)
+		log.Printf("Port: %d", port)
 		node, err := ConnectNode(port)
 		if err != nil {
+			log.Printf("Failed to connect to node with port %d: %v", port, err)
 			continue // Could not connect to node, continue to next port
 		}
-		activeNode = node
+		if activeNode == nil {
+			activeNode = node
+			break
+		} else if node != activeNode {
+			activeNode = node
+			break
+		}
 	}
 }
 
 // ConnectNode connect to a Node from a port
 func ConnectNode(port int) (proto.NodeClient, error) {
-	portString := fmt.Sprintf(":%d", port) // Format port string
+	portString := fmt.Sprintf(":1600%d", port) // Format port string
 	dialOptions := grpc.WithTransportCredentials(insecure.NewCredentials())
 	connection, err := grpc.NewClient(portString, dialOptions)
 	if err != nil {
@@ -87,14 +109,14 @@ func Bid(amount int32) {
 	}
 
 	switch ack.Status {
-	case 0:
-		fmt.Printf("Bid of %s placed successfully! \n", amount)
-	case 1:
-		fmt.Println("Bid failed.")
-	case 2:
-		fmt.Println("Error occurred during bidding.")
+	case bidSuccess:
+		log.Printf("Bid of %d placed successfully!", amount)
+	case bidFail:
+		log.Print("Bid failed.")
+	case bidError:
+		log.Print("Error occurred during bidding.")
 	default:
-		fmt.Println("Unknown response status.")
+		log.Print("Unknown response status.")
 	}
 }
 
@@ -108,9 +130,9 @@ func Result() {
 
 	// Handle the response
 	if response.IsAuctionFinished {
-		fmt.Printf("The auction is finished. The highest bid was %d.\n", response.HighestBid)
+		log.Printf("The auction is finished, highest bid was %d by bidder nr. %d", response.HighestBid, response.WinningBidder)
 	} else {
-		fmt.Printf("The auction is still ongoing. The highest bid is %d.\n", response.HighestBid)
+		log.Printf("The auction is still ongoing. The highest bid is %d by bidder nr. %d", response.HighestBid, response.WinningBidder)
 	}
 }
 

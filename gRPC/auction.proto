@@ -18,6 +18,7 @@ message BidAcknowledge {
 message AuctionOutcome {
   bool isAuctionFinished = 1; // is the auction finished?
   int32 highestBid = 2; // return current highest bid
+  int32 winningBidder = 3; // ID of auction winner
 }
 
 message Empty {}
