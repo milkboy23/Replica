@@ -17,6 +17,7 @@ import (
 var (
 	id         int32
 	ports      []int
+	activePort int
 	activeNode proto.NodeClient
 )
 
@@ -67,17 +68,15 @@ func main() {
 
 func Connect() {
 	for _, port := range ports {
-		log.Printf("Port: %d", port)
 		node, err := ConnectNode(port)
 		if err != nil {
 			log.Printf("Failed to connect to node with port %d: %v", port, err)
 			continue // Could not connect to node, continue to next port
 		}
-		if activeNode == nil {
+		if activeNode == nil || port != activePort {
+			activePort = port
 			activeNode = node
-			break
-		} else if node != activeNode {
-			activeNode = node
+			log.Printf("Connected to node with port %d", port)
 			break
 		}
 	}
@@ -85,7 +84,7 @@ func Connect() {
 
 // ConnectNode connect to a Node from a port
 func ConnectNode(port int) (proto.NodeClient, error) {
-	portString := fmt.Sprintf(":1600%d", port) // Format port string
+	portString := fmt.Sprintf(":%d", 16000+port) // Format port string
 	dialOptions := grpc.WithTransportCredentials(insecure.NewCredentials())
 	connection, err := grpc.NewClient(portString, dialOptions)
 	if err != nil {
@@ -106,6 +105,8 @@ func Bid(amount int32) {
 	ack, err := activeNode.Bid(context.Background(), bidRequest)
 	if err != nil {
 		Connect() // node failed handle by switching to new node
+		Bid(amount)
+		return
 	}
 
 	switch ack.Status {

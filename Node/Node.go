@@ -3,8 +3,10 @@ package main
 import (
 	proto "Replica/gRPC"
 	"context"
+	"flag"
 	"fmt"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"log"
 	"net"
 	"os"
@@ -12,8 +14,13 @@ import (
 	"time"
 )
 
+var isPrimary = flag.Bool("p", false, "")
+
 var ports []int
-var auctionOpen bool
+var listeningPort, echoPort int
+var echoNode proto.NodeClient
+
+var auctionOpen = true
 var openTime = 100
 
 var (
@@ -30,10 +37,16 @@ type NodeServer struct {
 }
 
 func main() {
+	flag.Parse()
 	registerNodes()
 	node := NewNodeServer()
-	go node.CloseAuctionAfter(openTime)
-	node.StartListener()
+
+	if *isPrimary {
+		go node.CloseAuctionAfter(openTime)
+	}
+
+	StartSender()
+	StartListener(node)
 }
 
 func (nodeServer *NodeServer) CloseAuctionAfter(nSeconds int) {
@@ -47,7 +60,7 @@ func (nodeServer *NodeServer) CloseAuctionAfter(nSeconds int) {
 func registerNodes() {
 	// Check if there are ports
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: go run client.go <port1> <port2> ... <portN>")
+		log.Print("Usage: go run client.go <port1> <port2> ... <portN>")
 		os.Exit(1)
 	}
 
@@ -55,7 +68,7 @@ func registerNodes() {
 	for _, parameter := range os.Args[1:] {
 		port, err := strconv.Atoi(parameter)
 		if err != nil {
-			fmt.Printf("Invalid port '%s'. Please enter integers only.\n", parameter)
+			//log.Printf("Invalid port '%s'. Please enter integers only.", parameter)
 			continue
 		}
 		ports = append(ports, port)
@@ -63,8 +76,11 @@ func registerNodes() {
 
 	// Print each port in the list?
 	for _, port := range ports {
-		fmt.Printf("Port: %d\n", port)
+		log.Printf("Port: %d", port)
 	}
+
+	listeningPort = ports[0]
+	echoPort = ports[1]
 }
 
 func NewNodeServer() *NodeServer {
@@ -73,8 +89,21 @@ func NewNodeServer() *NodeServer {
 	}
 }
 
-func (nodeServer *NodeServer) StartListener() {
-	portString := fmt.Sprintf(":1600%d", ports[0])
+func StartSender() {
+	portString := fmt.Sprintf(":%d", 16000+echoPort)
+	dialOptions := grpc.WithTransportCredentials(insecure.NewCredentials())
+	connection, connectionEstablishErr := grpc.NewClient(portString, dialOptions)
+	if connectionEstablishErr != nil {
+		log.Fatalf("Could not establish connection on port %s | %v", portString, connectionEstablishErr)
+	}
+
+	log.Printf("Started sending on port %s", portString)
+
+	echoNode = proto.NewNodeClient(connection)
+}
+
+func StartListener(nodeServer *NodeServer) {
+	portString := fmt.Sprintf(":%d", 16000+listeningPort)
 	listener, listenErr := net.Listen("tcp", portString)
 	if listenErr != nil {
 		log.Fatalf("Failed to listen on port %s | %v", portString, listenErr)
@@ -92,6 +121,18 @@ func (nodeServer *NodeServer) StartListener() {
 }
 
 func (nodeServer *NodeServer) Bid(ctx context.Context, bid *proto.AuctionBid) (*proto.BidAcknowledge, error) {
+	if *isPrimary {
+		return nodeServer.MakeBid(bid)
+	} else {
+		bidAcknowledge, err := echoNode.Bid(ctx, bid)
+		if err != nil {
+			return &proto.BidAcknowledge{Status: bidError}, err
+		}
+		return bidAcknowledge, nil
+	}
+}
+
+func (nodeServer *NodeServer) MakeBid(bid *proto.AuctionBid) (*proto.BidAcknowledge, error) {
 	if !auctionOpen {
 		log.Printf("Bidder nr. %d, just tried to bid on a closed auction, what a nerd", bid.Id)
 		return &proto.BidAcknowledge{Status: bidFail}, nil
@@ -123,5 +164,14 @@ func (nodeServer *NodeServer) Bid(ctx context.Context, bid *proto.AuctionBid) (*
 }
 
 func (nodeServer *NodeServer) Result(ctx context.Context, empty *proto.Empty) (*proto.AuctionOutcome, error) {
-	return &proto.AuctionOutcome{IsAuctionFinished: !auctionOpen, HighestBid: nodeServer.highestBid, WinningBidder: nodeServer.highestBidder}, nil
+	if *isPrimary {
+		return &proto.AuctionOutcome{IsAuctionFinished: !auctionOpen, HighestBid: nodeServer.highestBid, WinningBidder: nodeServer.highestBidder}, nil
+	} else {
+		auctionOutcome, err := echoNode.Result(ctx, empty)
+		if err != nil {
+			return nil, err
+		}
+
+		return auctionOutcome, nil
+	}
 }
