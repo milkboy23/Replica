@@ -7,26 +7,12 @@ import (
 	"fmt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"log"
 	"net"
 	"os"
 	"strconv"
 	"time"
-)
-
-var isPrimary = flag.Bool("p", false, "")
-var secondaryPort int
-
-var auctionOpenDuration = 100
-
-var ports []int
-var listeningPort, echoPort int
-var echoNode proto.NodeClient
-
-var (
-	bidSuccess int32 = 0
-	bidFail    int32 = 1
-	bidError   int32 = 2
 )
 
 type NodeServer struct {
@@ -36,6 +22,22 @@ type NodeServer struct {
 	auctionEndTime time.Time
 }
 
+var isPrimary = flag.Bool("p", false, "")
+var secondaryPort int
+
+var auctionOpenDuration = 100
+
+var ports []int
+var listeningPort, echoPort int
+var echoNode proto.NodeClient
+var node NodeServer
+
+var (
+	bidSuccess int32 = 0
+	bidFail    int32 = 1
+	bidError   int32 = 2
+)
+
 func main() {
 	SetLogger()
 	registerNodes()
@@ -43,6 +45,23 @@ func main() {
 
 	StartSender()
 	StartListener(node)
+}
+
+// SendReplica sends AuctionData to the ReplicateAuction RPC method
+func SendReplica() {
+	// Create the AuctionData message
+	auctionData := &proto.AuctionData{
+		HighestBid:     node.highestBid,
+		HighestBidder:  node.highestBidder,
+		AuctionEndTime: timestamppb.New(node.auctionEndTime), // Convert Go time to protobuf Timestamp
+	}
+
+	_, err := echoNode.ReplicateAuction(context.Background(), auctionData)
+	if err != nil {
+		log.Printf("failed to send: %v", err)
+	}
+
+	log.Println("Auction data replicated successfully.")
 }
 
 func registerNodes() {
