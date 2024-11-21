@@ -5,7 +5,7 @@ import "google/protobuf/timestamp.proto";
 service Node {
   rpc Bid (AuctionBid) returns (BidAcknowledge);
   rpc Result (Empty) returns (AuctionOutcome);
-  rpc ReplicateAuction(AuctionData) returns (Empty);
+  rpc ReplicateAuction (AuctionData) returns (Empty);
 }
 
 message AuctionBid {

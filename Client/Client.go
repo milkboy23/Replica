@@ -69,18 +69,16 @@ func RegisterPorts() {
 }
 
 func Connect() {
-	var portIndex = 0
-	for _, port := range ports {
-		portIndex++
+	for portIndex, port := range ports {
 		node, err := ConnectNode(port)
 		if err != nil {
-			log.Printf("Failed to connect to node with port %d/%d on %d: %v", portIndex, len(ports), port, err)
+			log.Printf("Failed to connect to node with port %d/%d on %d: %v", portIndex+1, len(ports), port, err)
 			continue // Could not connect to node, continue to next port
 		}
 		if activeNode == nil || portIndex > activeNodeIndex {
 			activeNode = node
 			activeNodeIndex = portIndex
-			log.Printf("Connected to node %d/%d with port %d", portIndex, len(ports), port)
+			log.Printf("Connected to node %d/%d with port %d", portIndex+1, len(ports), port)
 			break
 		}
 	}
