@@ -1,9 +1,11 @@
 syntax = "proto3";
 option go_package = "/";
+import "google/protobuf/timestamp.proto";
 
 service Node {
   rpc Bid (AuctionBid) returns (BidAcknowledge);
   rpc Result (Empty) returns (AuctionOutcome);
+  rpc ReplicateAuction(AuctionData) returns (Empty);
 }
 
 message AuctionBid {
@@ -21,8 +23,10 @@ message AuctionOutcome {
   int32 leaderId = 3; // ID of current auction leader
 }
 
-message ReplicationData {
-
+message AuctionData {
+  int32 highestBid = 1; // Highest auction bid amount
+  int32 highestBidder = 2; // ID of the highest bidder
+  google.protobuf.Timestamp auctionEndTime = 3; // Timestamp that auction should end??
 }
 
 message Empty {}
