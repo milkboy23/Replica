@@ -26,9 +26,9 @@ var (
 
 var ports []int
 var (
-	listeningPort int
-	primaryPort   int
-	secondaryPort int
+	listeningPort = -1
+	primaryPort   = -1
+	secondaryPort = -1
 )
 
 var auctionOpenDuration = 180
@@ -49,14 +49,13 @@ type NodeServer struct {
 func main() {
 	flag.Parse()
 	SetLogger()
-	RegisterPorts()
 	RegisterNodes()
 
 	node := StartNodeServer()
 	StartListener(node)
 }
 
-func RegisterPorts() {
+func RegisterNodes() {
 	// Parse each port
 	for _, parameter := range os.Args[1:] {
 		port, err := strconv.Atoi(parameter)
@@ -83,30 +82,39 @@ func RegisterPorts() {
 	listeningPort = ports[0]
 	if !*isPrimary {
 		primaryPort = ports[1]
+		echoNode = ConnectToNode(primaryPort)
 	} else {
-		secondaryIndex := rand.Intn(len(ports)-1) + 1
-		secondaryPort = ports[secondaryIndex]
-		log.Printf("Secondary: %d", secondaryPort)
+		ElectReplicas()
 	}
 }
 
-func RegisterNodes() {
-	if !*isPrimary {
-		echoNode = ConnectToNode(primaryPort)
-	} else {
-		secondaryNode = ConnectToNode(secondaryPort)
-		for _, port := range ports {
-			switch port {
-			case listeningPort:
-				continue
-			case secondaryPort:
-				continue
-			}
+func ElectReplicas() {
+	ChooseNewSecondary()
 
-			backupNode := ConnectToNode(port)
-			backupNodes = append(backupNodes, backupNode)
+	backupNodes = []proto.NodeClient{}
+	for _, port := range ports {
+		switch port {
+		case listeningPort:
+			continue
+		case secondaryPort:
+			continue
 		}
+
+		backupNode := ConnectToNode(port)
+		backupNodes = append(backupNodes, backupNode)
 	}
+}
+
+func ChooseNewSecondary() {
+	secondaryIndex := rand.Intn(len(ports)-1) + 1
+	if ports[secondaryIndex] == secondaryPort {
+		ChooseNewSecondary()
+		return
+	}
+
+	secondaryPort = ports[secondaryIndex]
+	log.Printf("Secondary elected: %d", secondaryPort)
+	secondaryNode = ConnectToNode(secondaryPort)
 }
 
 func StartNodeServer() *NodeServer {
@@ -191,15 +199,20 @@ func (nodeServer *NodeServer) MakeBid(bid *proto.AuctionBid) (*proto.BidAcknowle
 		bidStatus = bidFail
 	}
 
-	err := nodeServer.Replicate()
-	if err != nil {
-		bidStatus = bidError
-	}
+	nodeServer.Replicate()
 
 	return &proto.BidAcknowledge{Status: bidStatus}, nil
 }
 
-func (nodeServer *NodeServer) Replicate() error {
+func (nodeServer *NodeServer) Replicate() {
+	err := nodeServer.TryReplicate()
+	if err != nil { // Secondary crashed
+		ElectReplicas() // Elect new secondary
+		nodeServer.Replicate()
+	}
+}
+
+func (nodeServer *NodeServer) TryReplicate() error {
 	replicationData := &proto.AuctionData{
 		HighestBid:     nodeServer.highestBid,
 		HighestBidder:  nodeServer.highestBidder,
