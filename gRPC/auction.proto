@@ -7,8 +7,8 @@ service Node {
 }
 
 message AuctionBid {
-  int32 id = 1;
-  int32 amount = 2; // amount to bid
+  int32 id = 1; // Who made the bid
+  int32 amount = 2; // Amount to bid
 }
 
 message BidAcknowledge {
@@ -16,9 +16,13 @@ message BidAcknowledge {
 }
 
 message AuctionOutcome {
-  bool isAuctionFinished = 1; // is the auction finished?
-  int32 highestBid = 2; // return current highest bid
-  int32 winningBidder = 3; // ID of auction winner
+  bool isFinished = 1; // Is the auction finished?
+  int32 highestBid = 2; // Current highest bid
+  int32 leaderId = 3; // ID of current auction leader
+}
+
+message ReplicationData {
+
 }
 
 message Empty {}

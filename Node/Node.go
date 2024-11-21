@@ -15,13 +15,13 @@ import (
 )
 
 var isPrimary = flag.Bool("p", false, "")
+var secondaryPort int
+
+var auctionOpenDuration = 100
 
 var ports []int
 var listeningPort, echoPort int
 var echoNode proto.NodeClient
-
-var auctionOpen = true
-var openTime = 100
 
 var (
 	bidSuccess int32 = 0
@@ -31,39 +31,21 @@ var (
 
 type NodeServer struct {
 	proto.UnimplementedNodeServer
-	bidders       map[int32]int32
-	highestBid    int32
-	highestBidder int32
+	highestBid     int32
+	highestBidder  int32
+	auctionEndTime time.Time
 }
 
 func main() {
-	flag.Parse()
+	SetLogger()
 	registerNodes()
-	node := NewNodeServer()
-
-	if *isPrimary {
-		go node.CloseAuctionAfter(openTime)
-	}
+	node := StartNodeServer()
 
 	StartSender()
 	StartListener(node)
 }
 
-func (nodeServer *NodeServer) CloseAuctionAfter(nSeconds int) {
-	auctionOpen = true
-	log.Printf("Auction will close in %v seconds", nSeconds)
-	time.Sleep(time.Duration(nSeconds) * time.Second)
-	auctionOpen = false
-	log.Printf("Auction has closed, highest bid was %d by bidder nr. %d", nodeServer.highestBid, nodeServer.highestBidder)
-}
-
 func registerNodes() {
-	// Check if there are ports
-	if len(os.Args) < 2 {
-		log.Print("Usage: go run client.go <port1> <port2> ... <portN>")
-		os.Exit(1)
-	}
-
 	// Parse each port
 	for _, parameter := range os.Args[1:] {
 		port, err := strconv.Atoi(parameter)
@@ -74,19 +56,40 @@ func registerNodes() {
 		ports = append(ports, port)
 	}
 
-	// Print each port in the list?
-	for _, port := range ports {
-		log.Printf("Port: %d", port)
+	// Check if there are ports
+	if len(ports) < 1 {
+		log.Print("Usage: go run Node.go <port1> <port2> ... <portN>")
+		os.Exit(1)
 	}
+
+	// Print each port in the list?
+	fmt.Print("Ports: ")
+	for _, port := range ports {
+		fmt.Printf("%d ", port)
+	}
+	fmt.Println()
 
 	listeningPort = ports[0]
 	echoPort = ports[1]
 }
 
-func NewNodeServer() *NodeServer {
-	return &NodeServer{
-		bidders: make(map[int32]int32),
+func StartNodeServer() *NodeServer {
+	nodeServer := &NodeServer{}
+
+	flag.Parse()
+	if *isPrimary {
+		go nodeServer.CloseAuctionAfter(auctionOpenDuration)
 	}
+
+	return nodeServer
+}
+
+func (nodeServer *NodeServer) CloseAuctionAfter(nSeconds int) {
+	log.Printf("Auction will close in %v seconds", nSeconds)
+	auctionDuration := time.Duration(nSeconds) * time.Second
+	nodeServer.auctionEndTime = time.Now().Add(auctionDuration)
+	time.Sleep(time.Duration(nSeconds) * time.Second)
+	log.Printf("Auction has closed, highest bid was %d by bidder nr. %d", nodeServer.highestBid, nodeServer.highestBidder)
 }
 
 func StartSender() {
@@ -122,35 +125,24 @@ func StartListener(nodeServer *NodeServer) {
 
 func (nodeServer *NodeServer) Bid(ctx context.Context, bid *proto.AuctionBid) (*proto.BidAcknowledge, error) {
 	if *isPrimary {
+		if nodeServer.IsAuctionClosed() {
+			log.Printf("Bidder nr. %d, just tried to bid on a closed auction, what a nerd", bid.Id)
+			return &proto.BidAcknowledge{Status: bidFail}, nil
+		}
 		return nodeServer.MakeBid(bid)
 	} else {
+		log.Printf("Echo bid {ID: %d, Bid: %d}", bid.Id, bid.Amount)
 		bidAcknowledge, err := echoNode.Bid(ctx, bid)
 		if err != nil {
 			return &proto.BidAcknowledge{Status: bidError}, err
 		}
+		log.Printf("Response {Status: %d}", bidAcknowledge.Status)
 		return bidAcknowledge, nil
 	}
 }
 
 func (nodeServer *NodeServer) MakeBid(bid *proto.AuctionBid) (*proto.BidAcknowledge, error) {
-	if !auctionOpen {
-		log.Printf("Bidder nr. %d, just tried to bid on a closed auction, what a nerd", bid.Id)
-		return &proto.BidAcknowledge{Status: bidFail}, nil
-	}
-
 	log.Printf("Bidder nr. %d, just bid %d", bid.Id, bid.Amount)
-	bidderHighestBid, bidderAlreadyRegistered := nodeServer.bidders[bid.Id]
-	if !bidderAlreadyRegistered {
-		nodeServer.bidders[bid.Id] = bid.Amount
-		log.Print("Bidder wasn't registered, registering bidder...")
-	} else {
-		log.Printf("Bidder already registered with highest bid %d", bidderHighestBid)
-		if bid.Amount > bidderHighestBid {
-			nodeServer.bidders[bid.Id] = bid.Amount
-			log.Print("Bidder's new bid, is higher than previous highest bid, updating...")
-		}
-	}
-
 	if bid.Amount > nodeServer.highestBid {
 		log.Printf("New bid %d, is winning bid! (previous highest: %d)", bid.Amount, nodeServer.highestBid)
 		nodeServer.highestBid = bid.Amount
@@ -165,13 +157,31 @@ func (nodeServer *NodeServer) MakeBid(bid *proto.AuctionBid) (*proto.BidAcknowle
 
 func (nodeServer *NodeServer) Result(ctx context.Context, empty *proto.Empty) (*proto.AuctionOutcome, error) {
 	if *isPrimary {
-		return &proto.AuctionOutcome{IsAuctionFinished: !auctionOpen, HighestBid: nodeServer.highestBid, WinningBidder: nodeServer.highestBidder}, nil
+		return &proto.AuctionOutcome{IsFinished: nodeServer.IsAuctionClosed(), HighestBid: nodeServer.highestBid, LeaderId: nodeServer.highestBidder}, nil
 	} else {
+		log.Printf("Echo result")
 		auctionOutcome, err := echoNode.Result(ctx, empty)
 		if err != nil {
 			return nil, err
 		}
 
+		log.Printf("Response {Closed: %v, Bid: %d by %d}", auctionOutcome.IsFinished, auctionOutcome.HighestBid, auctionOutcome.LeaderId)
 		return auctionOutcome, nil
 	}
+}
+
+func (nodeServer *NodeServer) IsAuctionClosed() bool {
+	return time.Now().After(nodeServer.auctionEndTime)
+}
+
+type logWriter struct {
+}
+
+func SetLogger() {
+	log.SetFlags(0)
+	log.SetOutput(new(logWriter))
+}
+
+func (writer logWriter) Write(bytes []byte) (int, error) {
+	return fmt.Print(time.Now().UTC().Format("15:04:05.9 ") + string(bytes))
 }

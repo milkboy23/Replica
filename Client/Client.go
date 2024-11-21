@@ -4,6 +4,7 @@ import (
 	proto "Replica/gRPC"
 	"bufio"
 	"context"
+	"flag"
 	"fmt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -12,13 +13,16 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
+var idFlag = flag.Int("id", -1, "")
+
 var (
-	id         int32
-	ports      []int
-	activePort int
-	activeNode proto.NodeClient
+	id              int32
+	ports           []int
+	activeNodeIndex int
+	activeNode      proto.NodeClient
 )
 
 var (
@@ -28,12 +32,73 @@ var (
 )
 
 func main() {
+	SetLogger()
+	ParseId()
 	RegisterPorts()
-	id = int32(rand.Intn(100))
-	log.Printf("Client ID: %d", id)
 
 	Connect()
+	ListenForInput()
+}
 
+func ParseId() {
+	flag.Parse()
+	if *idFlag == -1 {
+		id = int32(rand.Intn(100))
+	} else {
+		id = int32(*idFlag)
+	}
+	log.Printf("Client ID: %d", id)
+}
+
+// RegisterPorts register ports from input
+func RegisterPorts() {
+	// Parse each port
+	for _, parameter := range os.Args[1:] {
+		port, err := strconv.Atoi(parameter)
+		if err != nil {
+			continue
+		}
+		ports = append(ports, port)
+	}
+
+	// Check if there are ports
+	if len(ports) < 2 {
+		log.Print("Usage: go run Client.go <port1> <port2> ... <portN>")
+		os.Exit(1)
+	}
+}
+
+func Connect() {
+	var portIndex = 0
+	for _, port := range ports {
+		portIndex++
+		node, err := ConnectNode(port)
+		if err != nil {
+			log.Printf("Failed to connect to node with port %d/%d on %d: %v", portIndex, len(ports), port, err)
+			continue // Could not connect to node, continue to next port
+		}
+		if activeNode == nil || portIndex > activeNodeIndex {
+			activeNode = node
+			activeNodeIndex = portIndex
+			log.Printf("Connected to node %d/%d with port %d", portIndex, len(ports), port)
+			break
+		}
+	}
+}
+
+// ConnectNode connect to a Node from a port
+func ConnectNode(port int) (proto.NodeClient, error) {
+	portString := fmt.Sprintf(":%d", 16000+port) // Format port string
+	dialOptions := grpc.WithTransportCredentials(insecure.NewCredentials())
+	connection, err := grpc.NewClient(portString, dialOptions)
+	if err != nil {
+		return nil, err // Return error if it fails to connect
+	}
+
+	return proto.NewNodeClient(connection), nil // Return Node if it succeeds
+}
+
+func ListenForInput() {
 	// Listen to input: bid <amount>, result (query the auction)
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
@@ -64,34 +129,6 @@ func main() {
 			log.Print("Usage: bid <amount>, result")
 		}
 	}
-}
-
-func Connect() {
-	for _, port := range ports {
-		node, err := ConnectNode(port)
-		if err != nil {
-			log.Printf("Failed to connect to node with port %d: %v", port, err)
-			continue // Could not connect to node, continue to next port
-		}
-		if activeNode == nil || port != activePort {
-			activePort = port
-			activeNode = node
-			log.Printf("Connected to node with port %d", port)
-			break
-		}
-	}
-}
-
-// ConnectNode connect to a Node from a port
-func ConnectNode(port int) (proto.NodeClient, error) {
-	portString := fmt.Sprintf(":%d", 16000+port) // Format port string
-	dialOptions := grpc.WithTransportCredentials(insecure.NewCredentials())
-	connection, err := grpc.NewClient(portString, dialOptions)
-	if err != nil {
-		return nil, err // Return error if it fails to connect
-	}
-
-	return proto.NewNodeClient(connection), nil // Return Node if it succeeds
 }
 
 // Bid in the auction an amount
@@ -127,31 +164,26 @@ func Result() {
 	response, err := activeNode.Result(context.Background(), &proto.Empty{})
 	if err != nil {
 		Connect() // node failed handle by switching to new node
+		Result()
+		return
 	}
 
 	// Handle the response
-	if response.IsAuctionFinished {
-		log.Printf("The auction is finished, highest bid was %d by bidder nr. %d", response.HighestBid, response.WinningBidder)
+	if response.IsFinished {
+		log.Printf("Auction finished, highest bid %d by nr. %d", response.HighestBid, response.LeaderId)
 	} else {
-		log.Printf("The auction is still ongoing. The highest bid is %d by bidder nr. %d", response.HighestBid, response.WinningBidder)
+		log.Printf("Auction ongoing, highest bid %d by nr. %d", response.HighestBid, response.LeaderId)
 	}
 }
 
-// RegisterPorts register ports from input
-func RegisterPorts() {
-	// Check if there are ports
-	if len(os.Args) < 2 {
-		fmt.Println("Usage: go run client.go <port1> <port2> ... <portN>")
-		os.Exit(1)
-	}
+type logWriter struct {
+}
 
-	// Parse each port
-	for _, parameter := range os.Args[1:] {
-		port, err := strconv.Atoi(parameter)
-		if err != nil {
-			fmt.Printf("Invalid port '%s'. Please enter integers only.\n", parameter)
-			os.Exit(1)
-		}
-		ports = append(ports, port)
-	}
+func SetLogger() {
+	log.SetFlags(0)
+	log.SetOutput(new(logWriter))
+}
+
+func (writer logWriter) Write(bytes []byte) (int, error) {
+	return fmt.Print(time.Now().UTC().Format("15:04:05.9 ") + string(bytes))
 }
