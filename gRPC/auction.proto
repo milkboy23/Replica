@@ -24,9 +24,9 @@ message AuctionOutcome {
 }
 
 message AuctionData {
-  int32 highestBid = 1; // Highest auction bid amount
+  int32 highestBid = 1; // Current highest bid amount
   int32 highestBidder = 2; // ID of the highest bidder
-  google.protobuf.Timestamp auctionEndTime = 3; // Timestamp that auction should end??
+  google.protobuf.Timestamp auctionEndTime = 3; // Timestamp of auction end
 }
 
 message Empty {}
