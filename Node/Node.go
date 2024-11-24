@@ -2,6 +2,7 @@ package main
 
 import (
 	proto "Replica/gRPC"
+	"bufio"
 	"context"
 	"flag"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -29,6 +31,7 @@ var (
 	listeningPort = -1
 	primaryPort   = -1
 	secondaryPort = -1
+	echoPort      = -1
 )
 
 var auctionOpenDuration = 180
@@ -52,7 +55,26 @@ func main() {
 	RegisterNodes()
 
 	node := StartNodeServer()
-	StartListener(node)
+	go StartListener(node)
+
+	go ListenForInput()
+}
+
+// for testing crashes with "exit" command
+func ListenForInput() {
+	scanner := bufio.NewScanner(os.Stdin)
+	for {
+		scanner.Scan()
+		input := strings.ToLower(scanner.Text())
+		commands := strings.Fields(input) // This splits the input by white space
+
+		if len(commands) == 0 {
+			log.Print("Usage: exit")
+			continue
+		} else if commands[0] == "exit" {
+			os.Exit(0)
+		}
+	}
 }
 
 func RegisterNodes() {
@@ -67,8 +89,9 @@ func RegisterNodes() {
 	}
 
 	// Check if there are enough ports
-	if len(ports) < 1 {
-		log.Print("Usage: go run Node.go <port1> <port2> ... <portN>")
+	if len(ports) < 2 {
+		log.Print("Usage (non primary): go run Node.go <currentPort> <primaryPort> <secondaryPort> ... <portN>")
+		log.Print("Usage (Primary): go run Node.go <currentPort> <secondaryPort> ... <portN>")
 		os.Exit(1)
 	}
 
@@ -79,11 +102,13 @@ func RegisterNodes() {
 	}
 	fmt.Println()
 
-	listeningPort = ports[0]
+	listeningPort = ports[0] // port at index 0 is the port of the current node
+	// if it is a normal node then the port at index 1 is the primary node port
 	if !*isPrimary {
 		primaryPort = ports[1]
+		secondaryPort = ports[2]
 		echoNode = ConnectToNode(primaryPort)
-	} else {
+	} else { // if it is primary node then choose secondary and replicas
 		ElectReplicas()
 	}
 }
@@ -93,21 +118,24 @@ func ElectReplicas() {
 
 	backupNodes = []proto.NodeClient{}
 	for _, port := range ports {
-		switch port {
+		switch port { // skip current node port and secondary node port
 		case listeningPort:
 			continue
 		case secondaryPort:
 			continue
 		}
 
+		// add nodes as backup replicas if they are not current node or secondary node
 		backupNode := ConnectToNode(port)
 		backupNodes = append(backupNodes, backupNode)
 	}
 }
 
+// choose a secondary node by taking the next port in port list
+// called on app start or when old secondary node crashes
 func ChooseNewSecondary() {
 	secondaryIndex := rand.Intn(len(ports)-1) + 1
-	if ports[secondaryIndex] == secondaryPort {
+	if ports[secondaryIndex] == secondaryPort { // what
 		ChooseNewSecondary()
 		return
 	}
@@ -145,6 +173,7 @@ func ConnectToNode(port int) proto.NodeClient {
 
 	log.Printf("Connected to node on port %s", portString)
 
+	echoPort = port
 	return proto.NewNodeClient(connection)
 }
 
@@ -174,10 +203,13 @@ func (nodeServer *NodeServer) Bid(ctx context.Context, bid *proto.AuctionBid) (*
 		}
 		return nodeServer.MakeBid(bid)
 	} else {
-		log.Printf("Echo bid {ID: %d, Bid: %d}", bid.Id, bid.Amount)
+		log.Printf("Echo bid {ID: %d, Bid: %d} from %d to %d", bid.Id, bid.Amount, listeningPort, echoPort)
 		bidAcknowledge, err := echoNode.Bid(ctx, bid)
 		if err != nil {
-			return &proto.BidAcknowledge{Status: bidError}, err
+			// this would occur if echoNode crashed, handle by connecting to secondary node
+			log.Printf("Echo bid failed to node at port %d with error %d", echoPort, err.Error())
+			echoNode = ConnectToNode(secondaryPort) // reconnect to secondary node instead
+			return nodeServer.Bid(ctx, bid)         // Try bid again
 		}
 		log.Printf("Response {Status: %d}", bidAcknowledge.Status)
 		return bidAcknowledge, nil
@@ -199,19 +231,20 @@ func (nodeServer *NodeServer) MakeBid(bid *proto.AuctionBid) (*proto.BidAcknowle
 		bidStatus = bidFail
 	}
 
-	nodeServer.Replicate()
+	nodeServer.Replicate() // replicate data to other nodes
 
 	return &proto.BidAcknowledge{Status: bidStatus}, nil
 }
 
 func (nodeServer *NodeServer) Replicate() {
-	err := nodeServer.TryReplicate()
-	if err != nil { // Secondary crashed
-		ElectReplicas() // Elect new secondary
-		nodeServer.Replicate()
+	err := nodeServer.TryReplicate() // if this fails then elect a new secondary from backup nodes and try again
+	if err != nil {                  // Secondary crashed
+		ElectReplicas()        // Elect new secondary
+		nodeServer.Replicate() // try again
 	}
 }
 
+// replicate data with grpc to secondary node and backup nodes. if it fails with secondary node then return new error
 func (nodeServer *NodeServer) TryReplicate() error {
 	replicationData := &proto.AuctionData{
 		HighestBid:     nodeServer.highestBid,
@@ -257,6 +290,7 @@ func (nodeServer *NodeServer) IsAuctionClosed() bool {
 	return time.Now().After(nodeServer.auctionEndTime)
 }
 
+// if this method calls that means this node is the secondary
 func (nodeServer *NodeServer) ReplicateAuction(ctx context.Context, data *proto.AuctionData) (*proto.Empty, error) {
 	nodeServer.highestBid = data.HighestBid
 	nodeServer.highestBidder = data.HighestBidder

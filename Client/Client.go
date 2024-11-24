@@ -37,7 +37,7 @@ func main() {
 	RegisterPorts()
 
 	Connect()
-	ListenForInput()
+	go ListenForInput()
 }
 
 func ParseId() {
