@@ -8,25 +8,30 @@ service Node {
   rpc ReplicateAuction (AuctionData) returns (Empty);
 }
 
+// A bid on the auction, from a client and with a given amount
 message AuctionBid {
-  int32 id = 1; // Who made the bid
-  int32 amount = 2; // Amount to bid
+  int32 id = 1; // ID of client who made the bid
+  int32 amount = 2; // Amount which was bid
 }
 
+// A response/result of a bid as to whether or not the bid succeeded or failed
 message BidAcknowledge {
-  int32 status = 1; // 0 = success, 1 = fail, 2 = exception/error
+  int32 status = 1; // Status/result of bid | 0 = success, 1 = fail, 2 = exception/error
 }
 
+// The outcome/current state of an auction
 message AuctionOutcome {
   bool isFinished = 1; // Is the auction finished?
   int32 highestBid = 2; // Current highest bid
   int32 leaderId = 3; // ID of current auction leader
 }
 
+// A package containing all relevant data of the auction
 message AuctionData {
   int32 highestBid = 1; // Current highest bid amount
   int32 highestBidder = 2; // ID of the highest bidder
-  google.protobuf.Timestamp auctionEndTime = 3; // Timestamp of auction end
+  google.protobuf.Timestamp auctionEndTime = 3; // Timestamp of when the auction ends
 }
 
+// Empty message used to represent void return-types
 message Empty {}

@@ -21,13 +21,14 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// A bid on the auction, from a client and with a given amount
 type AuctionBid struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Id     int32 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`         // Who made the bid
-	Amount int32 `protobuf:"varint,2,opt,name=amount,proto3" json:"amount,omitempty"` // Amount to bid
+	Id     int32 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`         // ID of client who made the bid
+	Amount int32 `protobuf:"varint,2,opt,name=amount,proto3" json:"amount,omitempty"` // Amount which was bid
 }
 
 func (x *AuctionBid) Reset() {
@@ -74,12 +75,13 @@ func (x *AuctionBid) GetAmount() int32 {
 	return 0
 }
 
+// A response/result of a bid as to whether or not the bid succeeded or failed
 type BidAcknowledge struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Status int32 `protobuf:"varint,1,opt,name=status,proto3" json:"status,omitempty"` // 0 = success, 1 = fail, 2 = exception/error
+	Status int32 `protobuf:"varint,1,opt,name=status,proto3" json:"status,omitempty"` // Status/result of bid | 0 = success, 1 = fail, 2 = exception/error
 }
 
 func (x *BidAcknowledge) Reset() {
@@ -119,6 +121,7 @@ func (x *BidAcknowledge) GetStatus() int32 {
 	return 0
 }
 
+// The outcome/current state of an auction
 type AuctionOutcome struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -180,6 +183,7 @@ func (x *AuctionOutcome) GetLeaderId() int32 {
 	return 0
 }
 
+// A package containing all relevant data of the auction
 type AuctionData struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -187,7 +191,7 @@ type AuctionData struct {
 
 	HighestBid     int32                `protobuf:"varint,1,opt,name=highestBid,proto3" json:"highestBid,omitempty"`        // Current highest bid amount
 	HighestBidder  int32                `protobuf:"varint,2,opt,name=highestBidder,proto3" json:"highestBidder,omitempty"`  // ID of the highest bidder
-	AuctionEndTime *timestamp.Timestamp `protobuf:"bytes,3,opt,name=auctionEndTime,proto3" json:"auctionEndTime,omitempty"` // Timestamp of auction end
+	AuctionEndTime *timestamp.Timestamp `protobuf:"bytes,3,opt,name=auctionEndTime,proto3" json:"auctionEndTime,omitempty"` // Timestamp of when the auction ends
 }
 
 func (x *AuctionData) Reset() {
@@ -241,6 +245,7 @@ func (x *AuctionData) GetAuctionEndTime() *timestamp.Timestamp {
 	return nil
 }
 
+// Empty message used to represent void return-types
 type Empty struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
