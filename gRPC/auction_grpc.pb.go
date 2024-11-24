@@ -22,6 +22,7 @@ const (
 	Node_Bid_FullMethodName              = "/Node/Bid"
 	Node_Result_FullMethodName           = "/Node/Result"
 	Node_ReplicateAuction_FullMethodName = "/Node/ReplicateAuction"
+	Node_PromoteSecondary_FullMethodName = "/Node/PromoteSecondary"
 )
 
 // NodeClient is the client API for Node service.
@@ -31,6 +32,7 @@ type NodeClient interface {
 	Bid(ctx context.Context, in *AuctionBid, opts ...grpc.CallOption) (*BidAcknowledge, error)
 	Result(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*AuctionOutcome, error)
 	ReplicateAuction(ctx context.Context, in *AuctionData, opts ...grpc.CallOption) (*Empty, error)
+	PromoteSecondary(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Empty, error)
 }
 
 type nodeClient struct {
@@ -71,6 +73,16 @@ func (c *nodeClient) ReplicateAuction(ctx context.Context, in *AuctionData, opts
 	return out, nil
 }
 
+func (c *nodeClient) PromoteSecondary(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, Node_PromoteSecondary_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // NodeServer is the server API for Node service.
 // All implementations must embed UnimplementedNodeServer
 // for forward compatibility.
@@ -78,6 +90,7 @@ type NodeServer interface {
 	Bid(context.Context, *AuctionBid) (*BidAcknowledge, error)
 	Result(context.Context, *Empty) (*AuctionOutcome, error)
 	ReplicateAuction(context.Context, *AuctionData) (*Empty, error)
+	PromoteSecondary(context.Context, *Empty) (*Empty, error)
 	mustEmbedUnimplementedNodeServer()
 }
 
@@ -96,6 +109,9 @@ func (UnimplementedNodeServer) Result(context.Context, *Empty) (*AuctionOutcome,
 }
 func (UnimplementedNodeServer) ReplicateAuction(context.Context, *AuctionData) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReplicateAuction not implemented")
+}
+func (UnimplementedNodeServer) PromoteSecondary(context.Context, *Empty) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PromoteSecondary not implemented")
 }
 func (UnimplementedNodeServer) mustEmbedUnimplementedNodeServer() {}
 func (UnimplementedNodeServer) testEmbeddedByValue()              {}
@@ -172,6 +188,24 @@ func _Node_ReplicateAuction_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Node_PromoteSecondary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeServer).PromoteSecondary(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Node_PromoteSecondary_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeServer).PromoteSecondary(ctx, req.(*Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Node_ServiceDesc is the grpc.ServiceDesc for Node service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -190,6 +224,10 @@ var Node_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReplicateAuction",
 			Handler:    _Node_ReplicateAuction_Handler,
+		},
+		{
+			MethodName: "PromoteSecondary",
+			Handler:    _Node_PromoteSecondary_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

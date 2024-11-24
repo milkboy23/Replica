@@ -6,6 +6,7 @@ service Node {
   rpc Bid (AuctionBid) returns (BidAcknowledge);
   rpc Result (Empty) returns (AuctionOutcome);
   rpc ReplicateAuction (AuctionData) returns (Empty);
+  rpc PromoteSecondary (Empty) returns (Empty);
 }
 
 // A bid on the auction, from a client and with a given amount

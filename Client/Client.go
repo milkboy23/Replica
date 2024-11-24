@@ -62,7 +62,7 @@ func RegisterPorts() {
 		ports = append(ports, port)
 	}
 
-	// Check if there are enough ports (minimum of 2 required for crash prevention)
+	// Check if there are enough ports supplied (minimum of 2 required for crash prevention)
 	if len(ports) < 2 {
 		log.Print("Usage: go run Client.go <port1> <port2> ... <portN>")
 		os.Exit(1)
@@ -199,5 +199,5 @@ func SetLogger() {
 }
 
 func (writer logWriter) Write(bytes []byte) (int, error) {
-	return fmt.Print(time.Now().Format("15:04:05 ") + string(bytes))
+	return fmt.Print(time.Now().Format("15:04:05.9 ") + string(bytes))
 }
