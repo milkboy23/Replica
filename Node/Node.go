@@ -290,15 +290,30 @@ func (nodeServer *NodeServer) IsAuctionClosed() bool {
 	return time.Now().After(nodeServer.auctionEndTime)
 }
 
-// if this method calls that means this node is the secondary
+// if this method calls that means this node is the secondary and it should track the primary node to know when it crashes
 func (nodeServer *NodeServer) ReplicateAuction(ctx context.Context, data *proto.AuctionData) (*proto.Empty, error) {
 	nodeServer.highestBid = data.HighestBid
 	nodeServer.highestBidder = data.HighestBidder
 	nodeServer.auctionEndTime = data.AuctionEndTime.AsTime()
-
+	go monitorPort(primaryPort) // monitor primary node
 	log.Printf("Replication data received {%d by %d, ends at %v}", nodeServer.highestBid, nodeServer.highestBidder, nodeServer.auctionEndTime.Format("15:04:05"))
 
 	return &proto.Empty{}, nil
+}
+
+func monitorPort(port int) {
+	portString := fmt.Sprintf("localhost:%d", 16000+port)
+	for {
+		conn, err := net.DialTimeout("tcp", portString, 1*time.Second)
+		if err != nil {
+			// primary node crashed, pretend to be primary somehow
+		}
+		err = conn.Close()
+		if err != nil {
+			return
+		}
+		time.Sleep(1 * time.Second) // Adjust interval as needed
+	}
 }
 
 type logWriter struct {
