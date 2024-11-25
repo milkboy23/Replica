@@ -294,11 +294,46 @@ func ReplicateToBackup(backupNode proto.NodeClient, replicationData *proto.Aucti
 
 // Result Allows for querying of auction state through gRPC
 func (nodeServer *NodeServer) Result(ctx context.Context, empty *proto.Empty) (*proto.AuctionOutcome, error) {
-	return &proto.AuctionOutcome{ // Returns auction state
-			IsFinished: nodeServer.IsAuctionClosed(),
-			HighestBid: nodeServer.highestBid,
-			LeaderId:   nodeServer.highestBidder},
-		nil
+	// There was a slight mistake, but essentially, Result() is NOT meant to echo to the primary,
+	// but instead use the data received through replication.
+	// That's what the commented out piece of code does,
+	// but the code below that, is the actual code that was used for the Logs.txt, and pictures of the program running.
+	// This problem also extends to the report, where we state that Result() echos to the primary,
+	// while we also state that the program reads directly from backup/replica nodes, which is obviously contradicting.
+	// Feel free to run the program with whichever version you want.
+	//
+	// Assuming anyone even reads this plea for mercy :')
+
+	/*return &proto.AuctionOutcome{ // Returns auction state
+		IsFinished: nodeServer.IsAuctionClosed(),
+		HighestBid: nodeServer.highestBid,
+		LeaderId:   nodeServer.highestBidder},
+	nil*/
+
+	if isPrimary { // If this node is primary
+		return &proto.AuctionOutcome{ // Returns auction state
+				IsFinished: nodeServer.IsAuctionClosed(),
+				HighestBid: nodeServer.highestBid,
+				LeaderId:   nodeServer.highestBidder},
+			nil
+	} else { // If this node isn't primary
+		log.Printf("Echo result from %d to %d", listeningPort, echoPort)
+
+		auctionOutcome, err := echoNode.Result(ctx, empty) // Echos result call to echoNode
+		if err != nil {                                    // Echoing failed, probably echoNode crashed
+			log.Printf("Failed to echo result on port %d", echoPort)
+
+			ConnectToEchoNode(secondaryPort)                                          // Change echoNode to secondary node instead
+			_, err := echoNode.PromoteSecondary(context.Background(), &proto.Empty{}) // Tell secondary to promote to primary since primary crashed
+			if err != nil {                                                           // Secondary also down? Two crashes... so this won't happen :))))
+				log.Fatalf("Failed to promote secondary node, this sucks :(")
+			}
+			return nodeServer.Result(ctx, empty) // Re-attempts result call
+		}
+
+		log.Printf("Response {Closed: %v, Bid: %d by %d}", auctionOutcome.IsFinished, auctionOutcome.HighestBid, auctionOutcome.LeaderId)
+		return auctionOutcome, nil
+	}
 }
 
 // IsAuctionClosed Checks if current time is after auctionEndTime
