@@ -35,7 +35,7 @@ var (
 	echoPort      = -1 // The port to echo commands to if this is an echo node
 )
 
-var auctionOpenDuration = 100 // The duration of the auction in seconds
+var auctionOpenDuration = 120 // The duration of the auction in seconds
 
 var (
 	bidSuccess int32 = 0 // Constant signifying a bid was successful
@@ -142,17 +142,23 @@ func ElectNewSecondary() {
 	ElectReplicas()      // Re-elect replicas
 }
 
-// StartNodeServer Starts a new node server and begins the auction
+// StartNodeServer Starts a new node server and boots up auction if this node is primary
 func StartNodeServer() *NodeServer {
-	nodeServer := &NodeServer{} // Initializes an empty NodeServer
-
-	if isPrimary { // Stuff only the primary does
+	if isPrimary { // Sets up auction state on primary (initial bid being 0, initial bidder being no one (ID: -1), and the auction end time)
 		auctionDuration := time.Duration(auctionOpenDuration) * time.Second // Converts from int seconds to time.Duration
-		nodeServer.auctionEndTime = time.Now().Add(auctionDuration)         // Sets nodeServer auctionEndTime to be auctionDuration seconds from now
-		go nodeServer.CloseAuctionAfter()                                   // Starts auction open/close printing goroutine
-	}
+		nodeServer := &NodeServer{
+			highestBid:     0,                               // Initial bid of 0
+			highestBidder:  -1,                              // Symbolizes that we initially have no highest bidder (ID: -1)
+			auctionEndTime: time.Now().Add(auctionDuration), // Sets auctionEndTime to be auctionDuration seconds from now
+		}
 
-	return nodeServer
+		nodeServer.Replicate()            // Ensures all other nodes initially have this same data ^^
+		go nodeServer.CloseAuctionAfter() // Starts auction (goroutine with announcing open/close)
+
+		return nodeServer
+	} else { // For non-primary nodes
+		return &NodeServer{} // They have their data overwritten from initial replication called by code above anyway, so empty is fine
+	}
 }
 
 // CloseAuctionAfter Calculates remaining time of auction, and prints said remaining time. Also sleeps until auction ends and prints winner
@@ -288,30 +294,11 @@ func ReplicateToBackup(backupNode proto.NodeClient, replicationData *proto.Aucti
 
 // Result Allows for querying of auction state through gRPC
 func (nodeServer *NodeServer) Result(ctx context.Context, empty *proto.Empty) (*proto.AuctionOutcome, error) {
-	if isPrimary { // If this node is primary
-		return &proto.AuctionOutcome{ // Returns auction state
-				IsFinished: nodeServer.IsAuctionClosed(),
-				HighestBid: nodeServer.highestBid,
-				LeaderId:   nodeServer.highestBidder},
-			nil
-	} else { // If this node isn't primary
-		log.Printf("Echo result from %d to %d", listeningPort, echoPort)
-
-		auctionOutcome, err := echoNode.Result(ctx, empty) // Echos result call to echoNode
-		if err != nil {                                    // Echoing failed, probably echoNode crashed
-			log.Printf("Failed to echo result on port %d", echoPort)
-
-			ConnectToEchoNode(secondaryPort)                                          // Change echoNode to secondary node instead
-			_, err := echoNode.PromoteSecondary(context.Background(), &proto.Empty{}) // Tell secondary to promote to primary since primary crashed
-			if err != nil {                                                           // Secondary also down? Two crashes... so this won't happen :))))
-				log.Fatalf("Failed to promote secondary node, this sucks :(")
-			}
-			return nodeServer.Result(ctx, empty) // Re-attempts result call
-		}
-
-		log.Printf("Response {Closed: %v, Bid: %d by %d}", auctionOutcome.IsFinished, auctionOutcome.HighestBid, auctionOutcome.LeaderId)
-		return auctionOutcome, nil
-	}
+	return &proto.AuctionOutcome{ // Returns auction state
+			IsFinished: nodeServer.IsAuctionClosed(),
+			HighestBid: nodeServer.highestBid,
+			LeaderId:   nodeServer.highestBidder},
+		nil
 }
 
 // IsAuctionClosed Checks if current time is after auctionEndTime
