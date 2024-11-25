@@ -5,7 +5,7 @@ To run the program:
 2. Open the terminal and navigate to the project directory
 3. In the terminal, begin by running the clients: ``go run client.go <port1> <port2> .... <portN>`` | where each of the ports are the list of known nodes for the client
 4. To run a node go to the node folder then run the commands depending on the type of node you want to start:
-   - Primary node: ``go run node.go <currentPort> <secondaryPort> <port1> ... <portN> -p=true``
+   - Primary node: ``go run node.go -p=true <currentPort> <secondaryPort> <port1> ... <portN>``
    - Secondary node: ``go run node.go <currentPort> <primaryPort> <secondaryPort/currentPort> <port1> ... <portN>``
    - Normal node: ``go run node.go <currentPort> <primaryPort> <secondaryPort>``
 IMPORTANT! The order in which nodes are run must be as follows: Backup nodes, Secondary node, Primary node.
