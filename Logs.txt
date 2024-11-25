@@ -1,0 +1,112 @@
+Logs for the system:
+
+index:
+- client.go 1
+- client.go 2
+- primary node
+- secondary node
+- backup node
+
+Logs start below:
+------
+
+D:\Source\GO\Replica\Client>go run client.go 2 1
+22:36:07.7 Client ID: 39
+22:36:07.7 Connected to node 1/2 with port 2
+result
+22:36:42.2 Auction ongoing, highest bid 3 by nr. 28
+bid 7
+22:36:59.8 Bid of 7 placed successfully!
+bid 12
+22:37:20.6 Bid of 12 placed successfully!
+result
+22:37:39.3 Auction ongoing, highest bid 13 by nr. 28
+
+
+
+
+
+D:\Source\GO\Replica\Client>go run client.go 1 2
+22:36:03.6 Client ID: 28
+22:36:03.6 Connected to node 1/2 with port 1
+bid 3
+22:36:37.6 Bid of 3 placed successfully!
+result
+22:37:09.4 Auction ongoing, highest bid 7 by nr. 39
+result
+22:37:24 Connected to node 2/2 with port 2 ---CRASH
+22:37:24 Auction ongoing, highest bid 12 by nr. 39
+bid 13
+22:37:28 Bid of 13 placed successfully!
+
+
+
+
+
+D:\Source\GO\Replica\Node>go run node.go -p=true 5 2 1
+Ports: 5 2 1 
+21:36:29.8 Connected to node on port :16002
+21:36:29.8 Connected to node on port :16001
+21:36:29.8 Auction will close in 100 seconds
+21:36:29.8 Started listening on port :16005
+21:36:37.6 Bidder nr. 28, just bid 3
+21:36:37.6 New bid 3, is winning bid! (previous highest: 0)
+21:36:37.6 New auction leader: nr. 28 (Previous leader: nr. 0)
+21:36:59.8 Bidder nr. 39, just bid 7
+21:36:59.8 New bid 7, is winning bid! (previous highest: 3)
+21:36:59.8 New auction leader: nr. 39 (Previous leader: nr. 28)
+21:37:20.5 Bidder nr. 39, just bid 12
+21:37:20.5 New bid 12, is winning bid! (previous highest: 7)
+21:37:20.5 New auction leader: nr. 39 (Previous leader: nr. 39)
+21:37:28 Bidder nr. 28, just bid 13
+21:37:28 New bid 13, is winning bid! (previous highest: 12)
+21:37:28 New auction leader: nr. 28 (Previous leader: nr. 39)
+21:38:09.8 Auction has closed, highest bid was 13 by bidder nr. 28
+
+
+
+
+
+
+D:\Source\GO\Replica\Node>go run node.go 2 5 2 1
+Ports: 2 5 2 1 
+21:36:21.8 Connected to node on port :16005
+21:36:21.8 Started listening on port :16002
+21:36:37.6 Replication data received {3 by 28, ends at 21:38:09.8}
+21:36:42.2 Echo result from 2 to 5
+21:36:42.2 Response {Closed: false, Bid: 3 by 28}
+21:36:59.8 Echo bid {ID: 39, Bid: 7} from 2 to 5
+21:36:59.8 Replication data received {7 by 39, ends at 21:38:09.8}
+21:36:59.8 Response {Status: 0}
+21:37:20.5 Echo bid {ID: 39, Bid: 12} from 2 to 5
+21:37:20.6 Replication data received {12 by 39, ends at 21:38:09.8}
+21:37:20.6 Response {Status: 0}
+21:37:24 Echo result from 2 to 5
+21:37:24 Response {Closed: false, Bid: 12 by 39}
+21:37:28 Echo bid {ID: 28, Bid: 13} from 2 to 5
+21:37:28 Replication data received {13 by 28, ends at 21:38:09.8}
+21:37:28 Response {Status: 0}
+21:37:39.3 Echo result from 2 to 5
+21:37:39.3 Response {Closed: false, Bid: 13 by 28}   
+
+
+
+
+
+
+
+D:\Source\GO\Replica\Node>go run node.go 1 5 2
+Ports: 1 5 2 
+21:36:12.8 Connected to node on port :16005
+21:36:12.8 Started listening on port :16001
+21:36:37.6 Echo bid {ID: 28, Bid: 3} from 1 to 5
+21:36:37.6 Response {Status: 0}
+21:36:37.6 Replication data received {3 by 28, ends at 21:38:09.8}
+21:36:59.8 Replication data received {7 by 39, ends at 21:38:09.8}
+21:37:09.4 Echo result from 1 to 5
+21:37:09.4 Response {Closed: false, Bid: 7 by 39}
+exit status 0xc000013a ---CRASH
+PS C:\Users\amira\OneDrive - ITU\Go\Replica> 
+
+
+
