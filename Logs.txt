@@ -1,0 +1,204 @@
+Logs for the system:
+
+index:
+- client.go 1
+- client.go 2
+- primary node
+- secondary node
+- backup node
+
+Logs start below:
+------
+
+D:\Source\GO\Replica\Client>go run client.go 2 1
+21:56:01 Client ID: 49
+21:56:01 Connected to node 1/2 with port 2
+bid 4
+21:56:57.4 Bid of 4 placed successfully!
+bid 10
+21:57:05.4 Bid of 10 placed successfully!
+bid 11
+21:57:17.6 Bid of 11 placed successfully!
+bid 13
+21:57:34.5 Bid of 13 placed successfully!
+result
+21:57:52.5 Auction ongoing, highest bid 45 by nr. 17
+bid 55
+21:57:54.4 Bid of 55 placed successfully!
+result
+21:57:56.9 Auction ongoing, highest bid 55 by nr. 49
+result
+21:58:34.2 Auction finished, highest bid 55 by nr. 49
+bid 67
+21:58:36.5 Bid failed.
+bid 100
+21:58:42.7 Bid failed.
+result
+21:58:44.6 Auction finished, highest bid 55 by nr. 49
+
+
+
+
+D:\Source\GO\Replica\Client>go run client.go 1 2
+21:55:53.8 Client ID: 17
+21:55:53.8 Connected to node 1/2 with port 1
+bid 6
+21:57:00.2 Bid of 6 placed successfully!
+bid 8
+21:57:02.2 Bid of 8 placed successfully!
+bid 6
+21:57:21.1 Bid failed.
+bid 10
+21:57:23.4 Bid failed.
+bid 11
+21:57:26.3 Bid failed.
+bid 12
+21:57:28.7 Bid of 12 placed successfully!
+bid 14
+21:57:38.1 Bid of 14 placed successfully!
+bid 45
+21:57:46.2 Bid of 45 placed successfully!
+result
+21:57:48.1 Auction ongoing, highest bid 45 by nr. 17
+result
+21:57:50.1 Auction ongoing, highest bid 45 by nr. 17
+result
+21:58:48.2 Auction finished, highest bid 55 by nr. 49
+
+
+
+
+
+
+D:\Source\GO\Replica\Node>go run node.go -p=true 5 2 1
+Ports: 5 2 1
+20:56:51.6 Connected to node on port :16002
+20:56:51.6 Connected to node on port :16001
+20:56:51.6 Auction will close in 100 seconds
+20:56:51.6 Started listening on port :16005
+20:56:57.4 Bidder nr. 49, just bid 4
+20:56:57.4 New bid 4, is winning bid! (previous highest: 0)
+20:56:57.4 New auction leader: nr. 49 (Previous leader: nr. 0)
+20:57:00.2 Bidder nr. 17, just bid 6
+20:57:00.2 New bid 6, is winning bid! (previous highest: 4)
+20:57:00.2 New auction leader: nr. 17 (Previous leader: nr. 49)
+20:57:02.2 Bidder nr. 17, just bid 8
+20:57:02.2 New bid 8, is winning bid! (previous highest: 6)
+20:57:02.2 New auction leader: nr. 17 (Previous leader: nr. 17)
+20:57:05.4 Bidder nr. 49, just bid 10
+20:57:05.4 New bid 10, is winning bid! (previous highest: 8)
+20:57:05.4 New auction leader: nr. 49 (Previous leader: nr. 17)
+20:57:17.6 Bidder nr. 49, just bid 11
+20:57:17.6 New bid 11, is winning bid! (previous highest: 10)
+20:57:17.6 New auction leader: nr. 49 (Previous leader: nr. 49)
+20:57:21.1 Bidder nr. 17, just bid 6
+20:57:21.1 New bid 6, is less than winning bid 11, ignoring...
+20:57:23.4 Bidder nr. 17, just bid 10
+20:57:23.4 New bid 10, is less than winning bid 11, ignoring...
+20:57:26.3 Bidder nr. 17, just bid 11
+20:57:26.3 New bid 11, is less than winning bid 11, ignoring...
+20:57:28.7 Bidder nr. 17, just bid 12
+20:57:28.7 New bid 12, is winning bid! (previous highest: 11)
+20:57:28.7 New auction leader: nr. 17 (Previous leader: nr. 49)
+20:57:34.5 Bidder nr. 49, just bid 13
+20:57:34.5 New bid 13, is winning bid! (previous highest: 12)
+20:57:34.5 New auction leader: nr. 49 (Previous leader: nr. 17)
+20:57:38.1 Bidder nr. 17, just bid 14
+20:57:38.1 New bid 14, is winning bid! (previous highest: 13)
+20:57:38.1 New auction leader: nr. 17 (Previous leader: nr. 49)
+20:57:46.2 Bidder nr. 17, just bid 45
+20:57:46.2 New bid 45, is winning bid! (previous highest: 14)
+20:57:46.2 New auction leader: nr. 17 (Previous leader: nr. 17)
+20:57:54.4 Bidder nr. 49, just bid 55
+20:57:54.4 New bid 55, is winning bid! (previous highest: 45)
+20:57:54.4 New auction leader: nr. 49 (Previous leader: nr. 17)
+20:58:31.6 Auction has closed, highest bid was 55 by bidder nr. 49
+20:58:36.5 Bidder nr. 49, just tried to bid on a closed auction, what a nerd
+20:58:42.7 Bidder nr. 49, just tried to bid on a closed auction, what a nerd
+
+
+
+
+
+
+D:\Source\GO\Replica\Node>go run node.go 2 5 2 1
+Ports: 2 5 2 1
+20:56:30 Connected to node on port :16005
+20:56:30 Started listening on port :16002
+20:56:57.4 Echo bid {ID: 49, Bid: 4} from 2 to 5
+20:56:57.4 Replication data received {4 by 49, ends at 20:58:31.6}
+20:56:57.4 Response {Status: 0}
+20:57:00.2 Replication data received {6 by 17, ends at 20:58:31.6}
+20:57:02.2 Replication data received {8 by 17, ends at 20:58:31.6}
+20:57:05.4 Echo bid {ID: 49, Bid: 10} from 2 to 5
+20:57:05.4 Replication data received {10 by 49, ends at 20:58:31.6}
+20:57:05.4 Response {Status: 0}
+20:57:17.6 Echo bid {ID: 49, Bid: 11} from 2 to 5
+20:57:17.6 Replication data received {11 by 49, ends at 20:58:31.6}
+20:57:17.6 Response {Status: 0}
+20:57:28.7 Replication data received {12 by 17, ends at 20:58:31.6}
+20:57:34.5 Echo bid {ID: 49, Bid: 13} from 2 to 5
+20:57:34.5 Replication data received {13 by 49, ends at 20:58:31.6}
+20:57:34.5 Response {Status: 0}
+20:57:38.1 Replication data received {14 by 17, ends at 20:58:31.6}
+20:57:46.2 Replication data received {45 by 17, ends at 20:58:31.6}
+20:57:52.5 Echo result from 2 to 5
+20:57:52.5 Response {Closed: false, Bid: 45 by 17}
+20:57:54.4 Echo bid {ID: 49, Bid: 55} from 2 to 5
+20:57:54.4 Replication data received {55 by 49, ends at 20:58:31.6}
+20:57:54.4 Response {Status: 0}
+20:57:56.9 Echo result from 2 to 5
+20:57:56.9 Response {Closed: false, Bid: 55 by 49}
+20:58:34.2 Echo result from 2 to 5
+20:58:34.2 Response {Closed: true, Bid: 55 by 49}
+20:58:36.5 Echo bid {ID: 49, Bid: 67} from 2 to 5
+20:58:36.5 Response {Status: 1}
+20:58:42.7 Echo bid {ID: 49, Bid: 100} from 2 to 5
+20:58:42.7 Response {Status: 1}
+20:58:44.6 Echo result from 2 to 5
+20:58:44.6 Response {Closed: true, Bid: 55 by 49}
+
+
+
+
+
+
+D:\Source\GO\Replica\Node>go run node.go 1 5 2
+Ports: 1 5 2
+20:56:17.9 Connected to node on port :16005
+20:56:17.9 Started listening on port :16001
+20:56:57.4 Replication data received {4 by 49, ends at 20:58:31.6}
+20:57:00.1 Echo bid {ID: 17, Bid: 6} from 1 to 5
+20:57:00.2 Replication data received {6 by 17, ends at 20:58:31.6}
+20:57:00.2 Response {Status: 0}
+20:57:02.2 Echo bid {ID: 17, Bid: 8} from 1 to 5
+20:57:02.2 Response {Status: 0}
+20:57:02.2 Replication data received {8 by 17, ends at 20:58:31.6}
+20:57:05.4 Replication data received {10 by 49, ends at 20:58:31.6}
+20:57:17.6 Replication data received {11 by 49, ends at 20:58:31.6}
+20:57:21.1 Echo bid {ID: 17, Bid: 6} from 1 to 5
+20:57:21.1 Response {Status: 1}
+20:57:23.4 Echo bid {ID: 17, Bid: 10} from 1 to 5
+20:57:23.4 Response {Status: 1}
+20:57:26.3 Echo bid {ID: 17, Bid: 11} from 1 to 5
+20:57:26.3 Response {Status: 1}
+20:57:28.7 Echo bid {ID: 17, Bid: 12} from 1 to 5
+20:57:28.7 Response {Status: 0}
+20:57:28.7 Replication data received {12 by 17, ends at 20:58:31.6}
+20:57:34.5 Replication data received {13 by 49, ends at 20:58:31.6}
+20:57:38.1 Echo bid {ID: 17, Bid: 14} from 1 to 5
+20:57:38.1 Response {Status: 0}
+20:57:38.1 Replication data received {14 by 17, ends at 20:58:31.6}
+20:57:46.2 Echo bid {ID: 17, Bid: 45} from 1 to 5
+20:57:46.2 Response {Status: 0}
+20:57:46.2 Replication data received {45 by 17, ends at 20:58:31.6}
+20:57:48.1 Echo result from 1 to 5
+20:57:48.1 Response {Closed: false, Bid: 45 by 17}
+20:57:50.1 Echo result from 1 to 5
+20:57:50.1 Response {Closed: false, Bid: 45 by 17}
+20:57:54.4 Replication data received {55 by 49, ends at 20:58:31.6}
+20:58:48.2 Echo result from 1 to 5
+20:58:48.2 Response {Closed: true, Bid: 55 by 49}
+
+
+
